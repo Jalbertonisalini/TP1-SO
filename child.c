@@ -6,14 +6,18 @@
 
 int main(int argc, char * argv[]){
     while (1) {
-//        sleep(1);
         char c;
         int n = read(STDIN_FILENO, &c, 1);
+//        sleep(n);
         if (n == -1) {
 
             perror("Error");
             break;
         }
+
+//        if(strcmp(&c, "M") != 0){
+//            sleep(2);
+//        }
 
         // Read returns 0 when the end of the file was reached.
         if (n == 0)

@@ -47,19 +47,29 @@ int main(int argc, char * argv[]){
         close(children[i].pipeWriteFd[1]);
     }
     int status;
-    char *arr[4] = {"hola", "Juana", "Pedro", "0"};
+    char *arr[8] = {"hola", "mmmmmm", "Pepe", "Gagol", "foda", "up", "A", "0"};
     int i = 0;
+    int j = 0;
     while (strcmp(arr[i], "0") != 0){
-        write(children[0].pipeReadFd[1],arr[i], strlen(arr[i]));
+
+        if(j == 5){
+            j = 0;
+        }
+
+        write(children[j].pipeReadFd[1],arr[i], strlen(arr[i]));
         sleep(1); // espero para que termine de escribir en el slave
-        ssize_t nRead = read(children[0].pipeWriteFd[0],buff,200);
+        ssize_t nRead = read(children[j].pipeWriteFd[0],buff,200);
+
+
 
         buff[nRead] = 0;
         printf("el proceso con PID dice: %s \n",buff);
 
         i++;
+        j++;
 
     }
+//    sleep(10); //para que termine una vez q leyo el 0
 
     // ACA verdaderamente lo estoy matando porque ya no lo uso mas
     close(children[0].pipeReadFd[1]);
