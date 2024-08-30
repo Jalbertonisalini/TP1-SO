@@ -49,7 +49,11 @@ int main(int argc, char * argv[]){
     //while (1)
    // {
         write(children[0].pipeReadFd[1],"wachin",6);
+        sleep(1); // espero para que termine de escribir en el slave
         ssize_t nRead = read(children[0].pipeWriteFd[0],buff,200);
+
+        buff[nRead] = 0;
+        printf("el proceso con PID dice: %s \n",buff);
 //        int childPid = waitpid(-1, &status, 0);
         //printf("el proceso con PID %d es indice %d\n",childPid,i);
 
@@ -73,8 +77,7 @@ int main(int argc, char * argv[]){
         printf("el proceso con PID %d es indice %d\n",childPid, i);
 
 
-       buff[nRead] = 0;
-        printf("el proceso con PID dice: %s \n",buff);
+
   //  }
 
     printf("Todos han terminado");
