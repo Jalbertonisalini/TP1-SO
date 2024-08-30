@@ -9,7 +9,7 @@
 #include <fcntl.h>
 
 #define MAX_LEN 256     /* Buffer size --> Big enough */
-#define SLAVES 3        /* Fixed slave number */
+#define SLAVES 1        /* Fixed slave number */
 #define ERROR (-1)        /* ERROR code */
 #define FIRST_PIPE_FD 3 /* By default, pipe read is on 3 */
 #define LAST_PIPE_FD 6  /* By default, after creating 2 pipes, second pipe's write is on 6 */
@@ -43,20 +43,18 @@ int main(int argc, char * argv[]){
         close(children[i].pipeReadFd[0]);
         close(children[i].pipeWriteFd[1]);
     }
-   sleep(10);
+
     int status;
-    while (1)
-    {
+    //while (1)
+   // {
         write(children[0].pipeReadFd[1],"el rojo el mas grande",21);
         int childPid = waitpid(-1, &status, 0);
         int i = getChildIndex(childPid);
         printf("el proceso con PID %d es indice %d\n",childPid,i);
         ssize_t nRead = read(children[i].pipeWriteFd[0],buff,200);
-        buff[nRead] = 0;
-
-        printf("el proceso con PID %d dice: %s",childPid,buff);
-        sleep(3);
-    }
+       buff[nRead] = 0;
+        printf("el proceso con PID %d dice: %s \n",childPid,buff);
+  //  }
 
     printf("Todos han terminado");
     return 0;

@@ -3,9 +3,6 @@
 #include <stdlib.h>
 
 int main(int argc, char * argv[]){
-    while (1) {
-        write(STDOUT_FILENO, "jaja", 5);
-        sleep(3);
-    }
-    exit(0);
+        write(STDOUT_FILENO, "jaja", 4);
+        exit(0);
 }
