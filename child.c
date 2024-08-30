@@ -1,11 +1,11 @@
 #include <stdio.h>
 #include <unistd.h>
+#include <stdlib.h>
 
 int main(int argc, char * argv[]){
-
-    char buffer[256];
-    printf("Hola a todos \n");
-    read(STDIN_FILENO, buffer, 11);
-    printf("Message got from pipe %s \n", buffer);
-    return 0;
+    while (1) {
+        write(STDOUT_FILENO, "jaja", 5);
+        sleep(3);
+    }
+    exit(0);
 }
