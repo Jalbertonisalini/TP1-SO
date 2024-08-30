@@ -23,6 +23,8 @@ typedef struct
 }Child;
 
 char buff[200];
+char buff2[200];
+
 
 int createChild(int childN);
 int getChildIndex(int childPid);
@@ -43,17 +45,36 @@ int main(int argc, char * argv[]){
         close(children[i].pipeReadFd[0]);
         close(children[i].pipeWriteFd[1]);
     }
-
     int status;
     //while (1)
    // {
         write(children[0].pipeReadFd[1],"wachin",6);
+        ssize_t nRead = read(children[0].pipeWriteFd[0],buff,200);
+//        int childPid = waitpid(-1, &status, 0);
+        //printf("el proceso con PID %d es indice %d\n",childPid,i);
+
+//        buff[nRead] = 0;
+//        printf("el proceso con PID %d dice: %s \n",childPid,buff);
+        if(nRead != 0){
+            write(children[0].pipeReadFd[1],"55",3);
+            ssize_t nRead2 = read(children[0].pipeWriteFd[0], buff2, 200);
+
+            if(nRead2 == 0){
+                printf("BOludo no lei el 55");
+            }
+            buff2[nRead2] = 0;
+            printf("el proceso con PID dice: %s \n",buff2);
+
+        }
+        // ACA verdaderamente lo estoy matando porque ya no lo uso mas
+        close(children[0].pipeReadFd[1]);
         int childPid = waitpid(-1, &status, 0);
         int i = getChildIndex(childPid);
-        //printf("el proceso con PID %d es indice %d\n",childPid,i);
-        ssize_t nRead = read(children[i].pipeWriteFd[0],buff,200);
+        printf("el proceso con PID %d es indice %d\n",childPid, i);
+
+
        buff[nRead] = 0;
-        printf("el proceso con PID %d dice: %s \n",childPid,buff);
+        printf("el proceso con PID dice: %s \n",buff);
   //  }
 
     printf("Todos han terminado");
