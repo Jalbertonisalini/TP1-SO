@@ -7,6 +7,7 @@
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <string.h>
 
 #define MAX_LEN 256     /* Buffer size --> Big enough */
 #define SLAVES 5        /* Fixed slave number */
@@ -46,39 +47,25 @@ int main(int argc, char * argv[]){
         close(children[i].pipeWriteFd[1]);
     }
     int status;
-    //while (1)
-   // {
-        write(children[0].pipeReadFd[1],"wachin",6);
+    char *arr[4] = {"hola", "Juana", "Pedro", "0"};
+    int i = 0;
+    while (strcmp(arr[i], "0") != 0){
+        write(children[0].pipeReadFd[1],arr[i], strlen(arr[i]));
         sleep(1); // espero para que termine de escribir en el slave
         ssize_t nRead = read(children[0].pipeWriteFd[0],buff,200);
 
         buff[nRead] = 0;
         printf("el proceso con PID dice: %s \n",buff);
-//        int childPid = waitpid(-1, &status, 0);
-        //printf("el proceso con PID %d es indice %d\n",childPid,i);
 
-//        buff[nRead] = 0;
-//        printf("el proceso con PID %d dice: %s \n",childPid,buff);
-        if(nRead != 0){
-            write(children[0].pipeReadFd[1],"55",3);
-            ssize_t nRead2 = read(children[0].pipeWriteFd[0], buff2, 200);
+        i++;
 
-            if(nRead2 == 0){
-                printf("BOludo no lei el 55");
-            }
-            buff2[nRead2] = 0;
-            printf("el proceso con PID dice: %s \n",buff2);
+    }
 
-        }
-        // ACA verdaderamente lo estoy matando porque ya no lo uso mas
-        close(children[0].pipeReadFd[1]);
-        int childPid = waitpid(-1, &status, 0);
-        int i = getChildIndex(childPid);
-        printf("el proceso con PID %d es indice %d\n",childPid, i);
-
-
-
-  //  }
+    // ACA verdaderamente lo estoy matando porque ya no lo uso mas
+    close(children[0].pipeReadFd[1]);
+    int childPid = waitpid(-1, &status, 0);
+    int m = getChildIndex(childPid);
+    printf("el proceso con PID %d es indice %d\n",childPid, m);
 
     printf("Todos han terminado");
     return 0;
