@@ -4,11 +4,18 @@
 #include <string.h>
 
 
+
+//hice que no lea por caracteres xq se rompia
+char buff[200];
+
 int main(int argc, char * argv[]){
     while (1) {
-        char c;
-        int n = read(STDIN_FILENO, &c, 1);
-//        sleep(n);
+       // char c;
+        ssize_t n = read(STDIN_FILENO, buff, 200);
+        buff[n] = 0;
+
+       // sleep(rand() % 2);
+        sleep(1);
         if (n == -1) {
 
             perror("Error");
@@ -23,9 +30,9 @@ int main(int argc, char * argv[]){
         if (n == 0)
             break;
 
-        if (c >= 'a' && c <= 'z')
-            c = c - ('a' - 'A');
-        write(STDOUT_FILENO, &c, n);
+        //if (c >= 'a' && c <= 'z')
+          //  c = c - ('a' - 'A');
+        write(STDOUT_FILENO, buff, n);
     }
 
     exit(0);

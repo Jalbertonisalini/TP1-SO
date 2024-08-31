@@ -29,12 +29,28 @@ char buff2[200];
 
 int createChild(int childN);
 int getChildIndex(int childPid);
+void initializeFdSets();
 
 Child children[SLAVES];
 
+
+/* select parameters */
+fd_set readFds;  //A structure type that can represent a set of file descriptors.
+fd_set writeFds;
+
+int nfds = 40;
+//int nfds = 3 + SLAVES *2 +1;
+// This argument should be set to the highest-numbered file descriptor in any of the three sets, plus 1.
+//esto no lo entendi pero con solo SLAVES me estaba imprimeindo solo el primero.
+//creo que no es LA CANTIDAD de fds lo que tenes que meterle sino QUE INDICE DE FD es el mas alto que tenes que ver
+//a chequear igual xq 40 probablemente es mucho pero por ahora con esto anda
+
 int main(int argc, char * argv[]){
 
+
+
     printf("el fd es %d     \n",getpid());
+
 
     /* Creates CHILDREN */
     for (int i = 0; i < SLAVES; ++i) {
@@ -49,24 +65,60 @@ int main(int argc, char * argv[]){
     int status;
     char *arr[8] = {"hola", "mmmmmm", "Pepe", "Gagol", "foda", "up", "A", "0"};
     int i = 0;
-    int j = 0;
+  //  int j = 0;
+
+    while (i < SLAVES){
+        write(children[i].pipeReadFd[1],arr[i], strlen(arr[i]));
+        i++;
+    }
     while (strcmp(arr[i], "0") != 0){
 
-        if(j == 5){
-            j = 0;
+//        if(j == 5){
+//            j = 0;
+//        }
+        initializeFdSets();
+
+        /* If timeout is specified as NULL, select() blocks indefinitely waiting for a file descriptor to become ready. */
+        int val = select(nfds,&readFds,NULL,NULL,NULL);
+
+        /* veo si alguno de los hijos termino de escribirme */
+        for (int k = 0; k < SLAVES; ++k) {
+
+            if(FD_ISSET(children[k].pipeWriteFd[0],&readFds)) {
+                /* FD_ISSET me dice si leer de el fd en cuestion me va a bloquear
+                 * si me devuelve TRUE es que no me bloquea, quiere decir que tengo algo para leer
+                 * osea que el hijo me escribio algo por el pipe
+                 * si me da false es porque no me mando nada y no tengo que leer */
+
+                ssize_t nRead = read(children[k].pipeWriteFd[0], buff, 200);
+                buff[nRead] = 0;
+                printf("el proceso con PID %d, indice %d dice: %s \n", children[k].childPid, k,  buff);
+
+                /* Write solo bloquearia si el pipe esta lleno que creo que no nos va a pasar
+                asi que no chequeo */
+                write(children[k].pipeReadFd[1],arr[i], strlen(arr[i]));
+                //esto esta raro xq tendriamos que ir incrementando I pero me tengo que ir. dsp lo cambiamos
+                //por eso capaz varios imprimen lo mismo
+            }
         }
 
-        write(children[j].pipeReadFd[1],arr[i], strlen(arr[i]));
-        sleep(1); // espero para que termine de escribir en el slave
-        ssize_t nRead = read(children[j].pipeWriteFd[0],buff,200);
-
-
-
-        buff[nRead] = 0;
-        printf("el proceso con PID dice: %s \n",buff);
 
         i++;
-        j++;
+       // j++;
+
+
+//
+//        write(children[j].pipeReadFd[1],arr[i], strlen(arr[i]));
+//        sleep(1); // espero para que termine de escribir en el slave
+//        ssize_t nRead = read(children[j].pipeWriteFd[0],buff,200);
+//
+//
+//
+//        buff[nRead] = 0;
+//        printf("el proceso con PID dice: %s \n",buff);
+//
+//        i++;
+//        j++;
 
     }
 //    sleep(10); //para que termine una vez q leyo el 0
@@ -79,6 +131,29 @@ int main(int argc, char * argv[]){
 
     printf("Todos han terminado");
     return 0;
+}
+
+
+
+//la parte de write la saque porque no deberia bloquear nada. porque siempre voy a poder escribir
+//el tema es si los hijos me mandaron algo o no
+void initializeFdSets()
+{
+    /* Note well: Upon return, each of the file descriptor sets is modified
+         * in place to indicate which file descriptors are currently "ready".
+         * Thus, if using select() within  a  loop,  the  sets  must  be
+       reinitialized before each call.*/
+
+    /*This macro clears (removes all file descriptors from) set.
+     * It should be employed as the first step in initializing a file descriptor set. */
+   // FD_ZERO(&writeFds);
+    FD_ZERO(&readFds);
+
+    for (int k = 0; k < SLAVES; ++k) {
+        /* This macro adds the file descriptor fd to set. */
+        //FD_SET(children[k].pipeReadFd[1],&writeFds);
+        FD_SET(children[k].pipeWriteFd[0],&readFds);
+    }
 }
 
 int getChildIndex(int childPid)
