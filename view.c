@@ -3,6 +3,7 @@
 #include <fcntl.h>           /* For O_* constants */
 #include <ctype.h>
 #include "pshm_ucase.h"
+#include <string.h>
 #define ERROR (-1)
 #define SHM_PATH "/sharedMem"
 
@@ -15,7 +16,19 @@ int main(int argc, char * argv[])
 //        errExit("Error while reading from STDIN");
 //    }
 
-    int shm_fd = shm_open(SHM_PATH, O_RDWR, S_IRUSR | S_IWUSR);
+
+    if(argc >= 2)
+    {
+        strcpy(shm_path,argv[1]);
+    }
+    else
+    {
+        if (read(STDIN_FILENO,shm_path,100) == ERROR){
+            errExit("Error while reading from STDIN");
+        }
+    }
+
+    int shm_fd = shm_open(shm_path, O_RDWR, S_IRUSR | S_IWUSR);
 
     if (shm_fd == -1) {
         errExit("Error in shm_open()");

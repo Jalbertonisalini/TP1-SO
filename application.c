@@ -21,6 +21,7 @@
 #define FIRST_PIPE_FD 3  /* By default, pipe read is on 3 */
 #define LAST_PIPE_FD 6   /* By default, after creating 2 pipes, second pipe's write is on 6 */
 #define SHM_PATH "/sharedMem"
+#define PATH_LEN 11
 
 typedef struct
 {
@@ -46,7 +47,7 @@ struct shmbuf  *shmp;
 
 int main(int argc, char * argv[]){
 
-    printf("%s",SHM_PATH);
+    write(STDOUT_FILENO,SHM_PATH, PATH_LEN);
     puts("");
 
     int shm_fd = shm_open(SHM_PATH, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);

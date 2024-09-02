@@ -2,7 +2,7 @@
 CC = gcc
 
 # Flags
-CFLAGS = -Wall -pedantic -std=c99
+CFLAGS = -Wall -pedantic
 
 # Application
 PROG1 = application
