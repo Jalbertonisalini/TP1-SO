@@ -67,15 +67,17 @@ int main(int argc, char * argv[]){
 
     int status;
   //  char *arr[] = {"hola", "mmmmmm", "Pepe", "Gagol", "foda", "up","asd","dsf","asd","asddd","asdsdsd", "A","asdasdsdsdsa", "0"};
-    int i = 1;
-    int j = 1;
 
-    while (i < argc && i < SLAVES){
-        write(children[i].pipeReadFd[1],argv[i], strlen(argv[i]));
-        i++;
+    int sended = 1; /* variable that counts number of files sended from parent to child. As the executable name is not wanted, we initialize it in 1.*/
+    int received = 1; /* variable that counts amount of files received again by parent --> this means they have been processeed already.    */
+
+    /* (sended - 1) is done to identify the child's index that actually starts in 0 */
+
+    while (sended < argc && (sended - 1) < SLAVES){
+        write(children[sended - 1].pipeReadFd[1], argv[sended], strlen(argv[sended]));
+        sended++;
     }
-    while (i < argc || j < argc){
-
+    while (sended < argc || received < argc){
 
         initializeFdSets();
 
@@ -86,24 +88,28 @@ int main(int argc, char * argv[]){
         for (int k = 0; k < SLAVES; ++k) {
 
             if(FD_ISSET(children[k].pipeWriteFd[0],&readFds)) {
-                j++;
+                received++;
+
                 /* FD_ISSET me dice si leer de el fd en cuestion me va a bloquear
                  * si me devuelve TRUE es que no me bloquea, quiere decir que tengo algo para leer
                  * osea que el hijo me escribio algo por el pipe
                  * si me da false es porque no me mando nada y no tengo que leer */
 
-                ssize_t nRead = read(children[k].pipeWriteFd[0], buff, 200);
+                ssize_t nRead;
+                if((nRead = read(children[k].pipeWriteFd[0], buff, 200)) == ERROR) {
+                    perror("Error while reading from child");
+                }
                 buff[nRead] = 0;
                 printf("el proceso con PID %d, indice %d dice: %s \n", children[k].childPid, k,  buff);
 
                 /* Write solo bloquearia si el pipe esta lleno que creo que no nos va a pasar
                 asi que no chequeo */
-                if(i < argc && write(children[k].pipeReadFd[1],argv[i], strlen(argv[i])) == -1)
+                if(sended < argc && write(children[k].pipeReadFd[1], argv[sended], strlen(argv[sended])) == ERROR)
                 {
                     perror("error while writing to child");
                     exit(1);
                 }
-                i++;
+                sended++;
 
                 //esto esta raro xq tendriamos que ir incrementando I pero me tengo que ir. dsp lo cambiamos
                 //por eso capaz varios imprimen lo mismo
@@ -213,7 +219,12 @@ int createChild(int childN)
         for (int i = FIRST_PIPE_FD; i <= LAST_PIPE_FD + 4 * childN ; ++i) {
             close(i);
         }
-        execve(CHILDPATH,args,envp);
+        if((execve(CHILDPATH,args,envp)) == ERROR){
+            perror("Error while doing execve...");
+            exit(1);
+        }
+
+
     }
     children[childN].childPid = pidChild;
     return 0;
