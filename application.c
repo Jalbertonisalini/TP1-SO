@@ -10,7 +10,7 @@
 #include <string.h>
 
 #define MAX_LEN 256     /* Buffer size --> Big enough */
-#define SLAVES 5        /* Fixed slave number */
+#define SLAVES 3        /* Fixed slave number */
 #define ERROR (-1)        /* ERROR code */
 #define FIRST_PIPE_FD 3  /* By default, pipe read is on 3 */
 #define LAST_PIPE_FD 6   /* By default, after creating 2 pipes, second pipe's write is on 6 */
@@ -38,8 +38,8 @@ Child children[SLAVES];
 fd_set readFds;  //A structure type that can represent a set of file descriptors.
 fd_set writeFds;
 
-int nfds = 40;
-//int nfds = 3 + SLAVES *2 +1;
+//int nfds = 40;
+int nfds = 3 + SLAVES *4 +1;
 // This argument should be set to the highest-numbered file descriptor in any of the three sets, plus 1.
 //esto no lo entendi pero con solo SLAVES me estaba imprimeindo solo el primero.
 //creo que no es LA CANTIDAD de fds lo que tenes que meterle sino QUE INDICE DE FD es el mas alto que tenes que ver
@@ -52,39 +52,41 @@ int main(int argc, char * argv[]){
     printf("el fd es %d     \n",getpid());
 
 
+
     /* Creates CHILDREN */
     for (int i = 0; i < SLAVES; ++i) {
         createChild(i);
     }
+
 
     /* Parent closes extra channels that he does not need. */
     for (int i = 0; i < SLAVES; ++i) {
         close(children[i].pipeReadFd[0]);
         close(children[i].pipeWriteFd[1]);
     }
-    int status;
-    char *arr[8] = {"hola", "mmmmmm", "Pepe", "Gagol", "foda", "up", "A", "0"};
-    int i = 0;
-  //  int j = 0;
 
-    while (i < SLAVES){
-        write(children[i].pipeReadFd[1],arr[i], strlen(arr[i]));
+    int status;
+  //  char *arr[] = {"hola", "mmmmmm", "Pepe", "Gagol", "foda", "up","asd","dsf","asd","asddd","asdsdsd", "A","asdasdsdsdsa", "0"};
+    int i = 1;
+    int j = 1;
+
+    while (i < argc && i < SLAVES){
+        write(children[i].pipeReadFd[1],argv[i], strlen(argv[i]));
         i++;
     }
-    while (strcmp(arr[i], "0") != 0){
+    while (i < argc || j < argc){
 
-//        if(j == 5){
-//            j = 0;
-//        }
+
         initializeFdSets();
 
         /* If timeout is specified as NULL, select() blocks indefinitely waiting for a file descriptor to become ready. */
-        int val = select(nfds,&readFds,NULL,NULL,NULL);
+        select(nfds,&readFds,NULL,NULL,NULL);
 
-        /* veo si alguno de los hijos termino de escribirme */
+        /* veo cual de los hijos termino de escribirme */
         for (int k = 0; k < SLAVES; ++k) {
 
             if(FD_ISSET(children[k].pipeWriteFd[0],&readFds)) {
+                j++;
                 /* FD_ISSET me dice si leer de el fd en cuestion me va a bloquear
                  * si me devuelve TRUE es que no me bloquea, quiere decir que tengo algo para leer
                  * osea que el hijo me escribio algo por el pipe
@@ -96,14 +98,18 @@ int main(int argc, char * argv[]){
 
                 /* Write solo bloquearia si el pipe esta lleno que creo que no nos va a pasar
                 asi que no chequeo */
-                write(children[k].pipeReadFd[1],arr[i], strlen(arr[i]));
+                if(i < argc && write(children[k].pipeReadFd[1],argv[i], strlen(argv[i])) == -1)
+                {
+                    perror("error while writing to child");
+                    exit(1);
+                }
+                i++;
+
                 //esto esta raro xq tendriamos que ir incrementando I pero me tengo que ir. dsp lo cambiamos
                 //por eso capaz varios imprimen lo mismo
             }
         }
 
-
-        i++;
        // j++;
 
 
@@ -121,6 +127,8 @@ int main(int argc, char * argv[]){
 //        j++;
 
     }
+
+
 //    sleep(10); //para que termine una vez q leyo el 0
 
     // ACA verdaderamente lo estoy matando porque ya no lo uso mas
@@ -174,9 +182,11 @@ int createChild(int childN)
 
     if(pipe(children[childN].pipeReadFd) == ERROR){
         perror("Error while creating pipe");
+        exit(1);
     }
     if(pipe(children[childN].pipeWriteFd) == ERROR){
         perror("Error while creating pipe");
+        exit(1);
     }
 
     /* 0,1,2 -> TTy 3-> pipeRead.read  4 -> pipeRead.write 5->pipeWrite.read 6 -> pipeWrite.Write

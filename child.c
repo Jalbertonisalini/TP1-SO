@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-
+//asdasd
 
 //hice que no lea por caracteres xq se rompia
 char buff[200];
