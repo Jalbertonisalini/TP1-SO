@@ -8,13 +8,19 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <string.h>
+#include <sys/mman.h>
+#include <sys/stat.h>        /* For mode constants */
+#include <fcntl.h>           /* For O_* constants */
+#include <ctype.h>
+
+#include "pshm_ucase.h"
 
 #define MAX_LEN 256     /* Buffer size --> Big enough */
 #define SLAVES 3        /* Fixed slave number */
 #define ERROR (-1)        /* ERROR code */
 #define FIRST_PIPE_FD 3  /* By default, pipe read is on 3 */
 #define LAST_PIPE_FD 6   /* By default, after creating 2 pipes, second pipe's write is on 6 */
-
+#define SHM_PATH "/sharedMem"
 
 typedef struct
 {
@@ -23,9 +29,7 @@ typedef struct
     int childPid;
 }Child;
 
-char buff[200];
-char buff2[200];
-
+char buff[2000];
 
 int createChild(int childN);
 int getChildIndex(int childPid);
@@ -33,31 +37,61 @@ void initializeFdSets();
 
 Child children[SLAVES];
 
-
 /* select parameters */
 fd_set readFds;  //A structure type that can represent a set of file descriptors.
 
-
-//int nfds = 40;
 int nfds = 3 + SLAVES *4 +1;
-// This argument should be set to the highest-numbered file descriptor in any of the three sets, plus 1.
-//esto no lo entendi pero con solo SLAVES me estaba imprimeindo solo el primero.
-//creo que no es LA CANTIDAD de fds lo que tenes que meterle sino QUE INDICE DE FD es el mas alto que tenes que ver
-//a chequear igual xq 40 probablemente es mucho pero por ahora con esto anda
+
+struct shmbuf  *shmp;
 
 int main(int argc, char * argv[]){
 
-
-
     printf("el fd es %d     \n",getpid());
 
+    int shm_fd = shm_open(SHM_PATH, O_CREAT | O_RDWR,S_IRUSR | S_IWUSR);
 
+    if(shm_fd == ERROR){
+        errExit("Error in shm_open()");
+    }
+
+    if (ftruncate(shm_fd, sizeof(struct shmbuf)) == ERROR) {
+        errExit("ftruncate");
+    }
+
+    shmp = mmap(NULL, sizeof(*shmp),  PROT_WRITE,
+                MAP_SHARED, shm_fd, 0);
+
+
+
+    if (shmp == MAP_FAILED)
+        errExit("mmap");
+
+    /* Initialize semaphores as process-shared, with value 0. */
+
+    if (sem_init(&shmp->sem1, 1, 0) == -1)
+        errExit("sem_init-sem1");
+
+    for (int i = 0; i < 5; ++i) {
+        shmp->buf[i] = i+'A';
+    }
+    shmp->buf[5] = '\n';
+    shmp->buf[6] = 0;
+
+    sleep(4);
+
+
+
+
+    /* Wait for 'sem1' to be posted by peer before touching
+       shared memory. */
+
+//    if (sem_wait(&shmp->sem1) == -1)
+//        errExit("sem_wait");
 
     /* Creates CHILDREN */
     for (int i = 0; i < SLAVES; ++i) {
         createChild(i);
     }
-
 
     /* Parent closes extra channels that he does not need. */
     for (int i = 0; i < SLAVES; ++i) {
@@ -145,6 +179,14 @@ int main(int argc, char * argv[]){
     printf("el proceso con PID %d es indice %d\n",childPid, m);
 
     printf("Todos han terminado");
+
+    if (munmap(shmp, sizeof(*shmp)) == -1) {
+        perror("munmap");
+        exit(1);
+    }
+
+    shm_unlink(SHM_PATH);
+
     return 0;
 }
 
