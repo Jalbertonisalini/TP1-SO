@@ -3,19 +3,54 @@
 #include <stdlib.h>
 #include <string.h>
 
-//asdasd
+#define MAX_BUFF 256
 
 //hice que no lea por caracteres xq se rompia
 char buff[200];
+char md5Buff[MAX_BUFF];
 
 int main(int argc, char * argv[]){
     while (1) {
-       // char c;
-        ssize_t n = read(STDIN_FILENO, buff, 200);
+        ssize_t n = read(STDIN_FILENO, buff, 170);
         buff[n] = 0;
 
-       // sleep(rand() % 2);
-        sleep(1);
+        char command[MAX_BUFF];
+        snprintf(command, sizeof(command), "md5sum %s", buff);
+
+        // FILE *popen(const char *command, const char *mode); // le paso el comando y el modo
+
+        FILE *pipe = popen(command, "r");
+        fgets(md5Buff,sizeof(md5Buff),pipe);
+
+        int status = pclose(pipe); //close the pipe correct
+        if (status == -1) {
+            perror("pclose");
+            return EXIT_FAILURE;
+        }
+
+        /*
+         *   fgets()  reads in at most one less than size characters from stream and
+       stores them into the buffer pointed to by s.  Reading  stops  after  an
+       EOF  or a newline.  If a newline is read, it is stored into the buffer.
+       A terminating null byte ('\0') is stored after the  last  character  in
+       the buffer.
+
+          fgets() returns s on success, and NULL on error or when end of file oc‐
+       curs while no characters have been read.
+
+          */
+
+//       char output[MAX_BUFF]
+//        while (fgets(md5Buff, sizeof(md5Buff), pipe) != NULL) {
+//            // Concatenar la salida en el buffer de salida
+//            strncat(output, md5Buff, sizeof(output) - strlen(output) - 1);
+//        }
+
+        if (pipe == NULL){
+            perror("popen failed");
+            return EXIT_FAILURE;
+        }
+
         if (n == -1) {
 
             perror("Error");
@@ -32,7 +67,7 @@ int main(int argc, char * argv[]){
 
         //if (c >= 'a' && c <= 'z')
           //  c = c - ('a' - 'A');
-        write(STDOUT_FILENO, buff, n);
+        write(STDOUT_FILENO, md5Buff, strlen(md5Buff));
     }
 
     exit(0);

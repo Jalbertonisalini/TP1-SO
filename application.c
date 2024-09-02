@@ -36,7 +36,7 @@ Child children[SLAVES];
 
 /* select parameters */
 fd_set readFds;  //A structure type that can represent a set of file descriptors.
-fd_set writeFds;
+
 
 //int nfds = 40;
 int nfds = 3 + SLAVES *4 +1;
@@ -77,7 +77,8 @@ int main(int argc, char * argv[]){
         write(children[sended - 1].pipeReadFd[1], argv[sended], strlen(argv[sended]));
         sended++;
     }
-    while (sended < argc || received < argc){
+
+    while (received < argc){
 
         initializeFdSets();
 
