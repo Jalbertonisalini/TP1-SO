@@ -48,35 +48,31 @@ int main(int argc, char * argv[]){
 
     printf("el fd es %d     \n",getpid());
 
-    int shm_fd = shm_open(SHM_PATH, O_CREAT | O_RDWR,S_IRUSR | S_IWUSR);
+    int shm_fd = shm_open(SHM_PATH, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
 
-    if(shm_fd == ERROR){
+    if (shm_fd == -1) {
         errExit("Error in shm_open()");
     }
 
-    if (ftruncate(shm_fd, sizeof(struct shmbuf)) == ERROR) {
+    if (ftruncate(shm_fd, sizeof(struct shmbuf)) == -1) {
         errExit("ftruncate");
     }
 
-    shmp = mmap(NULL, sizeof(*shmp),  PROT_WRITE,
-                MAP_SHARED, shm_fd, 0);
+   shmp = mmap(NULL, sizeof(*shmp), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
 
-
-
-    if (shmp == MAP_FAILED)
+    if (shmp == MAP_FAILED) {
         errExit("mmap");
-
-    /* Initialize semaphores as process-shared, with value 0. */
-
-    if (sem_init(&shmp->sem1, 1, 0) == -1)
-        errExit("sem_init-sem1");
-
-    for (int i = 0; i < 5; ++i) {
-        shmp->buf[i] = i+'A';
     }
-    shmp->buf[5] = '\n';
-    shmp->buf[6] = 0;
 
+/* Initialize semaphore */
+    if (sem_init(&shmp->sem1, 1, 0) == -1) {
+        errExit("sem_init-sem1");
+    }
+
+/* Write data */
+    strncpy(shmp->buf, "Hello from process 1", sizeof(shmp->buf));
+    sleep(10);
+    sem_post(&shmp->sem1);
     sleep(4);
 
 
