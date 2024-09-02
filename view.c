@@ -12,12 +12,7 @@ struct shmbuf  *shmp;
 
 int main(int argc, char * argv[])
 {
-//    if(read(STDIN_FILENO,shm_path,100) == ERROR){
-//        errExit("Error while reading from STDIN");
-//    }
-
-
-    if(argc >= 2)
+    if(argc >= 2) // ./view
     {
         strcpy(shm_path,argv[1]);
     }
@@ -58,14 +53,6 @@ int main(int argc, char * argv[])
     }
 
     printf("Todos han terminado\n");
-
-/* Wait for semaphore */
-  //  if (sem_wait(&shmp->resultadoDisponible) == -1) {
-  //      errExit("sem_wait");
-  //  }
-
-/* Read data */
-   // printf("Received message: %s\n", shmp->buf);
 
 /* Clean up */
     if (munmap(shmp, sizeof(*shmp)) == -1) {

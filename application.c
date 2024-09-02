@@ -76,9 +76,6 @@ int main(int argc, char * argv[]){
 
      sleep(4);
 
-
-
-
     /* Wait for 'resultadoDisponible' to be posted by peer before touching
        shared memory. */
 
@@ -267,8 +264,6 @@ int createChild(int childN)
             perror("Error while doing execve...");
             exit(1);
         }
-
-
     }
     children[childN].childPid = pidChild;
     return 0;
