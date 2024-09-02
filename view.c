@@ -3,15 +3,18 @@
 #include <fcntl.h>           /* For O_* constants */
 #include <ctype.h>
 #include "pshm_ucase.h"
-
 #define ERROR (-1)
 #define SHM_PATH "/sharedMem"
 
-
+char shm_path[100];
 struct shmbuf  *shmp;
 
 int main(int argc, char * argv[])
 {
+//    if(read(STDIN_FILENO,shm_path,100) == ERROR){
+//        errExit("Error while reading from STDIN");
+//    }
+
     int shm_fd = shm_open(SHM_PATH, O_RDWR, S_IRUSR | S_IWUSR);
 
     if (shm_fd == -1) {
@@ -24,15 +27,32 @@ int main(int argc, char * argv[])
         errExit("mmap");
     }
 
-    printf("Proceso 2: Esperando por el semáforo...\n");
+    if(sem_wait(&shmp->resultadoDisponible) == ERROR) //1 --> 0
+    {
+        perror("sem_wait");
+    }
+    printf("%s",shmp->buf);
 
-/* Wait for semaphore */
-    if (sem_wait(&shmp->sem1) == -1) {
-        errExit("sem_wait");
+    while (shmp->buf[0] != EOF)
+    {
+        printf("%s",shmp->buf);
+        sem_post(&shmp->resultadoLeido);
+
+        if(sem_wait(&shmp->resultadoDisponible) == ERROR)
+        {
+            perror("sem_wait");
+        }
     }
 
+    printf("Todos han terminado\n");
+
+/* Wait for semaphore */
+  //  if (sem_wait(&shmp->resultadoDisponible) == -1) {
+  //      errExit("sem_wait");
+  //  }
+
 /* Read data */
-    printf("Received message: %s\n", shmp->buf);
+   // printf("Received message: %s\n", shmp->buf);
 
 /* Clean up */
     if (munmap(shmp, sizeof(*shmp)) == -1) {

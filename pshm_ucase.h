@@ -1,7 +1,3 @@
-//
-// Created by Nep on 9/2/2024.
-//
-
 #ifndef TP1_SO_PSHM_UCASE_H
 #define TP1_SO_PSHM_UCASE_H
 
@@ -22,8 +18,8 @@
    memory object */
 
 struct shmbuf {
-    sem_t  sem1;            /* POSIX unnamed semaphore */
-    sem_t  sem2;            /* POSIX unnamed semaphore */
+    sem_t  resultadoDisponible;            /* POSIX unnamed semaphore */
+    sem_t  resultadoLeido;            /* POSIX unnamed semaphore */
     size_t cnt;             /* Number of bytes used in 'buf' */
     char   buf[BUF_SIZE];   /* Data being transferred */
 };

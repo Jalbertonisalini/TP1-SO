@@ -29,7 +29,7 @@ typedef struct
     int childPid;
 }Child;
 
-char buff[2000];
+char buff[200];
 
 int createChild(int childN);
 int getChildIndex(int childPid);
@@ -46,11 +46,12 @@ struct shmbuf  *shmp;
 
 int main(int argc, char * argv[]){
 
-    printf("el fd es %d     \n",getpid());
+    printf("%s",SHM_PATH);
+    puts("");
 
     int shm_fd = shm_open(SHM_PATH, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
 
-    if (shm_fd == -1) {
+    if (shm_fd == ERROR) {
         errExit("Error in shm_open()");
     }
 
@@ -65,23 +66,22 @@ int main(int argc, char * argv[]){
     }
 
 /* Initialize semaphore */
-    if (sem_init(&shmp->sem1, 1, 0) == -1) {
-        errExit("sem_init-sem1");
+    if (sem_init(&shmp->resultadoDisponible, 1, 0) == -1) {
+        errExit("sem_init-resultadoDisponible");
+    }
+    if (sem_init(&shmp->resultadoLeido, 1, 1) == -1) {
+        errExit("sem_init-resultadoDisponible");
     }
 
-/* Write data */
-    strncpy(shmp->buf, "Hello from process 1", sizeof(shmp->buf));
-    sleep(10);
-    sem_post(&shmp->sem1);
-    sleep(4);
+     sleep(4);
 
 
 
 
-    /* Wait for 'sem1' to be posted by peer before touching
+    /* Wait for 'resultadoDisponible' to be posted by peer before touching
        shared memory. */
 
-//    if (sem_wait(&shmp->sem1) == -1)
+//    if (sem_wait(&shmp->resultadoDisponible) == -1)
 //        errExit("sem_wait");
 
     /* Creates CHILDREN */
@@ -126,12 +126,15 @@ int main(int argc, char * argv[]){
                  * osea que el hijo me escribio algo por el pipe
                  * si me da false es porque no me mando nada y no tengo que leer */
 
+                sem_wait(&shmp->resultadoLeido);
                 ssize_t nRead;
                 if((nRead = read(children[k].pipeWriteFd[0], buff, 200)) == ERROR) {
                     perror("Error while reading from child");
                 }
                 buff[nRead] = 0;
-                printf("el proceso con PID %d, indice %d dice: %s \n", children[k].childPid, k,  buff);
+                sprintf(shmp->buf,"Hijo con PID: %d produjo Md5: %s \n",children[k].childPid,buff);
+              //  printf("el proceso con PID %d, indice %d dice: %s \n", children[k].childPid, k,  buff);
+                sem_post(&shmp->resultadoDisponible);
 
                 /* Write solo bloquearia si el pipe esta lleno que creo que no nos va a pasar
                 asi que no chequeo */
@@ -167,12 +170,13 @@ int main(int argc, char * argv[]){
 
 
 //    sleep(10); //para que termine una vez q leyo el 0
+    shmp->buf[0] = EOF;
+    sem_post(&shmp->resultadoDisponible);
 
     // ACA verdaderamente lo estoy matando porque ya no lo uso mas
     close(children[0].pipeReadFd[1]);
-    int childPid = waitpid(-1, &status, 0);
-    int m = getChildIndex(childPid);
-    printf("el proceso con PID %d es indice %d\n",childPid, m);
+    waitpid(-1, &status, 0);
+
 
     printf("Todos han terminado");
 
