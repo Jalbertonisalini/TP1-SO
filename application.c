@@ -9,9 +9,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <sys/mman.h>
-#include <sys/stat.h>        /* For mode constants */
-#include <fcntl.h>           /* For O_* constants */
-#include <ctype.h>
+
 
 #include "pshm_ucase.h"
 
@@ -47,14 +45,16 @@ struct shmbuf  *shmp;
 
 int main(int argc, char * argv[]){
 
-    write(STDOUT_FILENO,SHM_PATH, PATH_LEN);
-    puts("");
+
 
     int shm_fd = shm_open(SHM_PATH, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
 
     if (shm_fd == ERROR) {
         errExit("Error in shm_open()");
     }
+
+    write(STDOUT_FILENO,SHM_PATH, PATH_LEN);
+    puts("");
 
     if (ftruncate(shm_fd, sizeof(struct shmbuf)) == -1) {
         errExit("ftruncate");
@@ -94,7 +94,6 @@ int main(int argc, char * argv[]){
     }
 
     int status;
-  //  char *arr[] = {"hola", "mmmmmm", "Pepe", "Gagol", "foda", "up","asd","dsf","asd","asddd","asdsdsd", "A","asdasdsdsdsa", "0"};
 
     int sended = 1; /* variable that counts number of files sended from parent to child. As the executable name is not wanted, we initialize it in 1.*/
     int received = 1; /* variable that counts amount of files received again by parent --> this means they have been processeed already.    */
@@ -148,26 +147,10 @@ int main(int argc, char * argv[]){
             }
         }
 
-       // j++;
-
-
-//
-//        write(children[j].pipeReadFd[1],arr[i], strlen(arr[i]));
-//        sleep(1); // espero para que termine de escribir en el slave
-//        ssize_t nRead = read(children[j].pipeWriteFd[0],buff,200);
-//
-//
-//
-//        buff[nRead] = 0;
-//        printf("el proceso con PID dice: %s \n",buff);
-//
-//        i++;
-//        j++;
 
     }
 
 
-//    sleep(10); //para que termine una vez q leyo el 0
     shmp->buf[0] = EOF;
     sem_post(&shmp->resultadoDisponible);
 
