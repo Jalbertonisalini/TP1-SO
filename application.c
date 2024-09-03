@@ -53,7 +53,7 @@ int main(int argc, char * argv[]){
         errExit("Error in shm_open()");
     }
 
-    write(STDOUT_FILENO,SHM_PATH, PATH_LEN);
+
     puts("");
 
     if (ftruncate(shm_fd, sizeof(struct shmbuf)) == -1) {
@@ -66,6 +66,8 @@ int main(int argc, char * argv[]){
         errExit("mmap");
     }
 
+    write(STDOUT_FILENO,SHM_PATH, PATH_LEN);
+
 /* Initialize semaphore */
     if (sem_init(&shmp->resultadoDisponible, 1, 0) == -1) {
         errExit("sem_init-resultadoDisponible");
@@ -74,7 +76,7 @@ int main(int argc, char * argv[]){
         errExit("sem_init-resultadoDisponible");
     }
 
-     sleep(4);
+     sleep(1);
 
     /* Wait for 'resultadoDisponible' to be posted by peer before touching
        shared memory. */
@@ -130,7 +132,7 @@ int main(int argc, char * argv[]){
                 }
                 buff[nRead] = 0;
                 sprintf(shmp->buf,"Hijo con PID: %d produjo Md5: %s \n",children[k].childPid,buff);
-              //  printf("el proceso con PID %d, indice %d dice: %s \n", children[k].childPid, k,  buff);
+                //printf("el proceso con PID %d, indice %d dice: %s \n", children[k].childPid, k,  buff);
                 sem_post(&shmp->resultadoDisponible);
 
                 /* Write solo bloquearia si el pipe esta lleno que creo que no nos va a pasar
@@ -149,6 +151,7 @@ int main(int argc, char * argv[]){
 
 
     }
+    sem_wait(&shmp->resultadoLeido);
 
 
     shmp->buf[0] = EOF;
