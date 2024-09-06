@@ -1,9 +1,16 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
 
 #define MAX_BUFF 256
+#define ERROR (-1)
 
 //hice que no lea por caracteres xq se rompia
 char buff[200];
@@ -11,7 +18,13 @@ char md5Buff[MAX_BUFF];
 
 int main(int argc, char * argv[]){
     while (1) {
+
         ssize_t n = read(STDIN_FILENO, buff, 170);
+
+        if (n == ERROR){
+            perror("Error en la lectura");
+            exit(EXIT_FAILURE);
+        }
         buff[n] = 0;
 
         char command[MAX_BUFF];
@@ -20,6 +33,12 @@ int main(int argc, char * argv[]){
         // FILE *popen(const char *command, const char *mode); // le paso el comando y el modo
 
         FILE *pipe = popen(command, "r");
+
+        if(pipe == NULL){
+            perror("Error while opening pipe");
+            exit(EXIT_FAILURE);
+        }
+
         fgets(md5Buff,sizeof(md5Buff),pipe);
 
         int status = pclose(pipe); //close the pipe correct
@@ -46,16 +65,7 @@ int main(int argc, char * argv[]){
 //            strncat(output, md5Buff, sizeof(output) - strlen(output) - 1);
 //        }
 
-        if (pipe == NULL){
-            perror("popen failed");
-            return EXIT_FAILURE;
-        }
 
-        if (n == -1) {
-
-            perror("Error");
-            break;
-        }
 
 //        if(strcmp(&c, "M") != 0){
 //            sleep(2);

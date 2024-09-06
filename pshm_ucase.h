@@ -18,8 +18,8 @@
    memory object */
 
 struct shmbuf {
-    sem_t  resultadoDisponible;            /* POSIX unnamed semaphore */
-    sem_t  resultadoLeido;            /* POSIX unnamed semaphore */
+    sem_t  resultadoDisponible;            /* POSIX unnamed semaphore Puedo leer tranqui*/
+    sem_t  resultadoLeido;            /* POSIX unnamed semaphore Puedo escribir tranquilo*/
     size_t cnt;             /* Number of bytes used in 'buf' */
     char   buf[BUF_SIZE];   /* Data being transferred */
 };

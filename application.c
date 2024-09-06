@@ -1,3 +1,9 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
 //application.c
 
 #include <sys/types.h>
@@ -33,19 +39,23 @@ char buff[200];
 int createChild(int childN);
 int getChildIndex(int childPid);
 void initializeFdSets();
+void createOutputTxt();
 
 Child children[SLAVES];
 
 /* select parameters */
 fd_set readFds;  //A structure type that can represent a set of file descriptors.
-
 int nfds = 3 + SLAVES *4 +1;
 
 struct shmbuf  *shmp;
 
+
+int outputFd;
+//int shm_fd;
+
+char view = 0;
+
 int main(int argc, char * argv[]){
-
-
 
     int shm_fd = shm_open(SHM_PATH, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
 
@@ -53,6 +63,8 @@ int main(int argc, char * argv[]){
         errExit("Error in shm_open()");
     }
 
+    //    int outputFd = open("output.txt",O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+    createOutputTxt();
 
     puts("");
 
@@ -68,6 +80,7 @@ int main(int argc, char * argv[]){
 
     write(STDOUT_FILENO,SHM_PATH, PATH_LEN);
 
+
 /* Initialize semaphore */
     if (sem_init(&shmp->resultadoDisponible, 1, 0) == -1) {
         errExit("sem_init-resultadoDisponible");
@@ -76,7 +89,11 @@ int main(int argc, char * argv[]){
         errExit("sem_init-resultadoDisponible");
     }
 
-     sleep(1);
+     sleep(2);
+
+    if(shmp->buf[0]){
+        view = 1;
+    }
 
     /* Wait for 'resultadoDisponible' to be posted by peer before touching
        shared memory. */
@@ -125,15 +142,20 @@ int main(int argc, char * argv[]){
                  * osea que el hijo me escribio algo por el pipe
                  * si me da false es porque no me mando nada y no tengo que leer */
 
-                sem_wait(&shmp->resultadoLeido);
+                if(view){
+                    sem_wait(&shmp->resultadoLeido); // the second child that finish will wait until the first one finish
+                }
+
                 ssize_t nRead;
-                if((nRead = read(children[k].pipeWriteFd[0], buff, 200)) == ERROR) {
-                    perror("Error while reading from child");
+                if((nRead = read(children[k].pipeWriteFd[0], buff, 199)) == ERROR) {
+                    errExit("Error while reading from child");
                 }
                 buff[nRead] = 0;
                 sprintf(shmp->buf,"Hijo con PID: %d produjo Md5: %s \n",children[k].childPid,buff);
-                //printf("el proceso con PID %d, indice %d dice: %s \n", children[k].childPid, k,  buff);
+                write(outputFd,shmp->buf, strlen(shmp->buf));
+                if(view){
                 sem_post(&shmp->resultadoDisponible);
+                }
 
                 /* Write solo bloquearia si el pipe esta lleno que creo que no nos va a pasar
                 asi que no chequeo */
@@ -143,18 +165,13 @@ int main(int argc, char * argv[]){
                     exit(1);
                 }
                 sended++;
-
-                //esto esta raro xq tendriamos que ir incrementando I pero me tengo que ir. dsp lo cambiamos
-                //por eso capaz varios imprimen lo mismo
             }
         }
-
-
     }
     sem_wait(&shmp->resultadoLeido);
 
 
-    shmp->buf[0] = EOF;
+    shmp->buf[0] = EOF; // le mandamos de a uno los archivos
     sem_post(&shmp->resultadoDisponible);
 
     // ACA verdaderamente lo estoy matando porque ya no lo uso mas
@@ -174,6 +191,23 @@ int main(int argc, char * argv[]){
     return 0;
 }
 
+
+void createOutputTxt(){
+    outputFd = open("result.txt", O_WRONLY | O_CREAT, 0644);
+
+    if (outputFd < 0) {
+        perror("Error al abrir o crear el archivo");
+        return;
+    }
+}
+
+//void createShm_Fd(){
+//    int shm_fd = shm_open(SHM_PATH, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+//
+//    if (shm_fd == ERROR) {
+//        errExit("Error in shm_open()");
+//    }
+//}
 
 
 //la parte de write la saque porque no deberia bloquear nada. porque siempre voy a poder escribir

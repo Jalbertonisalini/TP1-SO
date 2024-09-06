@@ -1,3 +1,9 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
 #include <sys/mman.h>
 #include <sys/stat.h>        /* For mode constants */
 #include <fcntl.h>           /* For O_* constants */
@@ -7,14 +13,17 @@
 #define ERROR (-1)
 #define SHM_PATH "/sharedMem"
 
-char shm_path[100];
+#define MAXLENTH 256
+
+char shm_path[MAXLENTH];
 struct shmbuf  *shmp;
 
 int main(int argc, char * argv[])
 {
     if(argc >= 2) // ./view
     {
-        strcpy(shm_path,argv[1]);
+        strncpy(shm_path, argv[1], 255);
+        shm_path[255] = '\0';
     }
     else
     {
@@ -35,13 +44,14 @@ int main(int argc, char * argv[])
         errExit("mmap");
     }
 
+    shmp->buf[0] = 1;
+
     if(sem_wait(&shmp->resultadoDisponible) == ERROR) //1 --> 0
     {
         perror("sem_wait");
     }
-    printf("%s",shmp->buf);
 
-    while (shmp->buf[0] != EOF)
+    while ((int)shmp->buf[0] != EOF) // root/TP1-SO/view.c	47	err	V739 EOF should not be compared with a value of the 'char' type. The 'shmp->buf[0]' should be of the 'int' type.
     {
         printf("%s",shmp->buf);
         sem_post(&shmp->resultadoLeido);
@@ -52,7 +62,7 @@ int main(int argc, char * argv[])
         }
     }
 
-    printf("Todos han terminado\n");
+//    printf("Todos han terminado\n");
 
 /* Clean up */
     if (munmap(shmp, sizeof(*shmp)) == -1) {
