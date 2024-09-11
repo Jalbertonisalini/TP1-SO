@@ -81,6 +81,7 @@ int main(int argc, char * argv[]){
     }
 
     write(STDOUT_FILENO,SHM_PATH, PATH_LEN);
+    shmp->totalFiles = argc-1;
 
 
 /* Initialize semaphore */
@@ -149,6 +150,7 @@ int main(int argc, char * argv[]){
 
         i++;
     }
+    size_t n;
 
 
     while (received < argc){
@@ -168,6 +170,7 @@ int main(int argc, char * argv[]){
                 }
                 buff[nRead] = 0;
                 char *token = strtok(buff, delimiters);
+
                 while (token!= NULL)
                 {
 //                    if(view){
@@ -175,9 +178,9 @@ int main(int argc, char * argv[]){
 //                    }
 
                     sprintf(shmp->buf + stringToWriteStartOffset,"Hijo con PID: %d produjo Md5: %s \n",children[k].childPid,token);
-                    size_t n = strlen(shmp->buf + stringToWriteStartOffset);
+                    n = strlen(shmp->buf + stringToWriteStartOffset);
                     write(outputFd,shmp->buf +stringToWriteStartOffset, n);
-                    stringToWriteStartOffset += n;
+
                     //     printf("%s",shmp->buf);
 
                     if(view){
@@ -185,6 +188,7 @@ int main(int argc, char * argv[]){
                     }
                     received++;
                     token = strtok(NULL, delimiters);
+                    stringToWriteStartOffset += n;
                 }
 
 
@@ -196,12 +200,14 @@ int main(int argc, char * argv[]){
 
                 /* Write solo bloquearia si el pipe esta lleno que creo que no nos va a pasar
                 asi que no chequeo */
-                if(sended < argc && write(children[k].pipeReadFd[1], argv[sended], strlen(argv[sended])) == ERROR)
+                if(sended < argc)
                 {
-                    perror("error while writing to child");
-                    exit(1);
+                    if(write(children[k].pipeReadFd[1], argv[sended], strlen(argv[sended])) == ERROR){
+                        perror("error while writing to child");
+                        exit(1);
+                    }
+                    sended++;
                 }
-                sended++;
             }
         }
     }
@@ -210,7 +216,7 @@ int main(int argc, char * argv[]){
 
    // char bufffffff[1000];
    // sprintf(bufffffff,"application startOffset %zu \n",stringToWriteStartOffset);
-    shmp->buf[0] = EOF; // le mandamos de a uno los archivos
+   // shmp->buf[0] = EOF; // le mandamos de a uno los archivos
    // write(STDOUT_FILENO,bufffffff,1000);
 
     sem_post(&shmp->resultadoDisponible);

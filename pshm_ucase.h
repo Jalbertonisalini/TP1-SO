@@ -22,6 +22,7 @@ struct shmbuf {
     sem_t  resultadoLeido;            /* POSIX unnamed semaphore Puedo escribir tranquilo*/
     size_t cnt;             /* Number of bytes used in 'buf' */
     char   buf[BUF_SIZE];   /* Data being transferred */
+    int totalFiles;
 };
 
 #endif //TP1_SO_PSHM_UCASE_H

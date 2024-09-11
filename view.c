@@ -19,6 +19,7 @@ char shm_path[MAXLENTH];
 struct shmbuf  *shmp;
 int stringToReadStartOffset = 0;
 int stringToReadEndOffset = 0;
+int filesRead = 0;
 
 int main(int argc, char * argv[])
 {
@@ -53,16 +54,18 @@ int main(int argc, char * argv[])
         perror("sem_wait");
     }
 
-    while ((int)shmp->buf[0] != EOF) // root/TP1-SO/view.c	47	err	V739 EOF should not be compared with a value of the 'char' type. The 'shmp->buf[0]' should be of the 'int' type.
+   // while ((int)shmp->buf[0] != EOF) // root/TP1-SO/view.c	47	err	V739 EOF should not be compared with a value of the 'char' type. The 'shmp->buf[0]' should be of the 'int' type.
+    while (filesRead < shmp->totalFiles)
     {
         while (shmp->buf[stringToReadEndOffset] != 0){
             stringToReadEndOffset++;
         }
         //stringToReadEndOffset++;
-      //  printf("%s %d     ",shmp->buf + stringToReadStartOffset,stringToReadEndOffset);
+        printf("%s",shmp->buf + stringToReadStartOffset);
         stringToReadStartOffset = stringToReadEndOffset;
      //   sem_post(&shmp->resultadoLeido);
 
+      filesRead++;
         if(sem_wait(&shmp->resultadoDisponible) == ERROR)
         {
             perror("sem_wait");
