@@ -54,6 +54,7 @@ int outputFd;
 //int shm_fd;
 
 char view = 0;
+char delimiters[] = "\n";
 
 int main(int argc, char * argv[]){
 
@@ -119,10 +120,13 @@ int main(int argc, char * argv[]){
 
     /* (sended - 1) is done to identify the child's index that actually starts in 0 */
 
+    char delim = '|' ;
     while (sended < argc && (sended - 1) < SLAVES){
         write(children[sended - 1].pipeReadFd[1], argv[sended], strlen(argv[sended]));
+        write(children[sended - 1].pipeReadFd[1],&delim, 1);
         sended++;
     }
+    view = 0;
 
     while (received < argc){
 
@@ -134,28 +138,37 @@ int main(int argc, char * argv[]){
         /* veo cual de los hijos termino de escribirme */
         for (int k = 0; k < SLAVES; ++k) {
 
-            if(FD_ISSET(children[k].pipeWriteFd[0],&readFds)) {
-                received++;
+             if(FD_ISSET(children[k].pipeWriteFd[0],&readFds)) {
+                ssize_t nRead;
+                if((nRead = read(children[k].pipeWriteFd[0], buff, 199)) == ERROR) {
+                    errExit("Error while reading from child");
+                }
+                buff[nRead] = 0;
+                char *token = strtok(buff, delimiters);
+                while (token!= NULL)
+                {
+                    if(view){
+                        sem_wait(&shmp->resultadoLeido); // the second child that finish will wait until the first one finish
+                    }
+
+                    sprintf(shmp->buf,"Hijo con PID: %d produjo Md5: %s \n",children[k].childPid,token);
+                    write(outputFd,shmp->buf, strlen(shmp->buf));
+                    printf("%s",shmp->buf);
+
+                    if(view){
+                        sem_post(&shmp->resultadoDisponible);
+                    }
+                    received++;
+                    token = strtok(NULL, delimiters);
+                }
+
 
                 /* FD_ISSET me dice si leer de el fd en cuestion me va a bloquear
                  * si me devuelve TRUE es que no me bloquea, quiere decir que tengo algo para leer
                  * osea que el hijo me escribio algo por el pipe
                  * si me da false es porque no me mando nada y no tengo que leer */
 
-                if(view){
-                    sem_wait(&shmp->resultadoLeido); // the second child that finish will wait until the first one finish
-                }
 
-                ssize_t nRead;
-                if((nRead = read(children[k].pipeWriteFd[0], buff, 199)) == ERROR) {
-                    errExit("Error while reading from child");
-                }
-                buff[nRead] = 0;
-                sprintf(shmp->buf,"Hijo con PID: %d produjo Md5: %s \n",children[k].childPid,buff);
-                write(outputFd,shmp->buf, strlen(shmp->buf));
-                if(view){
-                sem_post(&shmp->resultadoDisponible);
-                }
 
                 /* Write solo bloquearia si el pipe esta lleno que creo que no nos va a pasar
                 asi que no chequeo */
