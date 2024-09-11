@@ -121,10 +121,30 @@ int main(int argc, char * argv[]){
     /* (sended - 1) is done to identify the child's index that actually starts in 0 */
 
     char delim = '|' ;
-    while (sended < argc && (sended - 1) < SLAVES){
-        write(children[sended - 1].pipeReadFd[1], argv[sended], strlen(argv[sended]));
-        write(children[sended - 1].pipeReadFd[1],&delim, 1);
-        sended++;
+    int i = 0;
+    while (sended < argc && i < SLAVES){
+
+        // Calcula el tamaño necesario para la nueva cadena
+        size_t totalLength = strlen(argv[sended]) + strlen(argv[sended + 1]) + 3; // +1 para '|' y +1 para '\0'
+
+        // Reserva espacio para la nueva cadena
+        char *result = (char *)malloc(totalLength * sizeof(char));
+
+        if (result == NULL) {
+            perror("Error allocating memory");
+            return 1;
+        }
+
+        // Usa snprintf para construir la nueva cadena
+        snprintf(result, totalLength, "%s|%s|", argv[sended], argv[sended + 1]);
+
+        write(children[i].pipeReadFd[1], result, totalLength);
+//        write(children[i].pipeReadFd[1],&delim, 1);
+
+        // Libera la memoria reservada
+        free(result);
+        sended += 2;
+        i++;
     }
     view = 0;
 
