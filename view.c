@@ -17,6 +17,8 @@
 
 char shm_path[MAXLENTH];
 struct shmbuf  *shmp;
+int stringToReadStartOffset = 0;
+int stringToReadEndOffset = 0;
 
 int main(int argc, char * argv[])
 {
@@ -53,8 +55,13 @@ int main(int argc, char * argv[])
 
     while ((int)shmp->buf[0] != EOF) // root/TP1-SO/view.c	47	err	V739 EOF should not be compared with a value of the 'char' type. The 'shmp->buf[0]' should be of the 'int' type.
     {
-        printf("%s",shmp->buf);
-        sem_post(&shmp->resultadoLeido);
+        while (shmp->buf[stringToReadEndOffset] != 0){
+            stringToReadEndOffset++;
+        }
+        //stringToReadEndOffset++;
+      //  printf("%s %d     ",shmp->buf + stringToReadStartOffset,stringToReadEndOffset);
+        stringToReadStartOffset = stringToReadEndOffset;
+     //   sem_post(&shmp->resultadoLeido);
 
         if(sem_wait(&shmp->resultadoDisponible) == ERROR)
         {
@@ -62,7 +69,7 @@ int main(int argc, char * argv[])
         }
     }
 
-//    printf("Todos han terminado\n");
+    printf("Todos han terminado\n");
 
 /* Clean up */
     if (munmap(shmp, sizeof(*shmp)) == -1) {

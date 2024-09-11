@@ -55,6 +55,7 @@ int outputFd;
 
 char view = 0;
 char delimiters[] = "\n";
+size_t stringToWriteStartOffset = 0;
 
 int main(int argc, char * argv[]){
 
@@ -144,9 +145,11 @@ int main(int argc, char * argv[]){
         // Libera la memoria reservada
         free(result);
         sended += 2;
+
+
         i++;
     }
-    view = 0;
+
 
     while (received < argc){
 
@@ -167,13 +170,15 @@ int main(int argc, char * argv[]){
                 char *token = strtok(buff, delimiters);
                 while (token!= NULL)
                 {
-                    if(view){
-                        sem_wait(&shmp->resultadoLeido); // the second child that finish will wait until the first one finish
-                    }
+//                    if(view){
+//                        sem_wait(&shmp->resultadoLeido); // the second child that finish will wait until the first one finish
+//                    }
 
-                    sprintf(shmp->buf,"Hijo con PID: %d produjo Md5: %s \n",children[k].childPid,token);
-                    write(outputFd,shmp->buf, strlen(shmp->buf));
-                    printf("%s",shmp->buf);
+                    sprintf(shmp->buf + stringToWriteStartOffset,"Hijo con PID: %d produjo Md5: %s \n",children[k].childPid,token);
+                    size_t n = strlen(shmp->buf + stringToWriteStartOffset);
+                    write(outputFd,shmp->buf +stringToWriteStartOffset, n);
+                    stringToWriteStartOffset += n;
+                    //     printf("%s",shmp->buf);
 
                     if(view){
                         sem_post(&shmp->resultadoDisponible);
@@ -189,7 +194,6 @@ int main(int argc, char * argv[]){
                  * si me da false es porque no me mando nada y no tengo que leer */
 
 
-
                 /* Write solo bloquearia si el pipe esta lleno que creo que no nos va a pasar
                 asi que no chequeo */
                 if(sended < argc && write(children[k].pipeReadFd[1], argv[sended], strlen(argv[sended])) == ERROR)
@@ -201,10 +205,14 @@ int main(int argc, char * argv[]){
             }
         }
     }
-    sem_wait(&shmp->resultadoLeido);
 
+//ultimoFileEOF
 
+   // char bufffffff[1000];
+   // sprintf(bufffffff,"application startOffset %zu \n",stringToWriteStartOffset);
     shmp->buf[0] = EOF; // le mandamos de a uno los archivos
+   // write(STDOUT_FILENO,bufffffff,1000);
+
     sem_post(&shmp->resultadoDisponible);
 
     // ACA verdaderamente lo estoy matando porque ya no lo uso mas
