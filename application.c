@@ -56,9 +56,15 @@ int outputFd;
 char view = 0;
 char delimiters[] = "\n";
 size_t stringToWriteStartOffset = 0;
+char ** files;
+int nfiles;
+int sended = 1;
+int received = 1;
 
 int main(int argc, char * argv[]){
 
+    nfiles = argc;
+    files = argv;
     int shm_fd = shm_open(SHM_PATH, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
 
     if (shm_fd == ERROR) {
@@ -117,8 +123,8 @@ int main(int argc, char * argv[]){
 
     int status;
 
-    int sended = 1; /* variable that counts number of files sended from parent to child. As the executable name is not wanted, we initialize it in 1.*/
-    int received = 1; /* variable that counts amount of files received again by parent --> this means they have been processeed already.    */
+     /* variable that counts number of files sended from parent to child. As the executable name is not wanted, we initialize it in 1.*/
+     /* variable that counts amount of files received again by parent --> this means they have been processeed already.    */
 
     /* (sended - 1) is done to identify the child's index that actually starts in 0 */
 
@@ -131,6 +137,7 @@ int main(int argc, char * argv[]){
 
         // Reserva espacio para la nueva cadena
         char *result = (char *)malloc(totalLength * sizeof(char));
+
 
         if (result == NULL) {
             perror("Error allocating memory");
@@ -173,15 +180,9 @@ int main(int argc, char * argv[]){
 
                 while (token!= NULL)
                 {
-//                    if(view){
-//                        sem_wait(&shmp->resultadoLeido); // the second child that finish will wait until the first one finish
-//                    }
-
                     sprintf(shmp->buf + stringToWriteStartOffset,"Hijo con PID: %d produjo Md5: %s \n",children[k].childPid,token);
                     n = strlen(shmp->buf + stringToWriteStartOffset);
                     write(outputFd,shmp->buf +stringToWriteStartOffset, n);
-
-                    //     printf("%s",shmp->buf);
 
                     if(view){
                         sem_post(&shmp->resultadoDisponible);
@@ -190,16 +191,7 @@ int main(int argc, char * argv[]){
                     token = strtok(NULL, delimiters);
                     stringToWriteStartOffset += n;
                 }
-
-
-                /* FD_ISSET me dice si leer de el fd en cuestion me va a bloquear
-                 * si me devuelve TRUE es que no me bloquea, quiere decir que tengo algo para leer
-                 * osea que el hijo me escribio algo por el pipe
-                 * si me da false es porque no me mando nada y no tengo que leer */
-
-
-                /* Write solo bloquearia si el pipe esta lleno que creo que no nos va a pasar
-                asi que no chequeo */
+                
                 if(sended < argc)
                 {
                     if(write(children[k].pipeReadFd[1], argv[sended], strlen(argv[sended])) == ERROR){
@@ -336,4 +328,45 @@ int createChild(int childN)
     return 0;
 }
 
+
+void passFilesToChild(int numFiles, int childIndex)
+{
+    // Calcula el tamaño necesario para la nueva cadena
+    size_t totalLength = 0;
+    size_t filePathSize[numFiles];
+
+    for (int i = 0; i < numFiles; ++i) {
+        filePathSize[i] = strlen(files[sended + i]);
+        totalLength += filePathSize[i];
+    }
+    totalLength += numFiles + 1;
+
+ //   totalLength = strlen(files[sended]) + strlen(files[sended + 1]) + 3; // +1 para '|' y +1 para '\0'
+
+    // Reserva espacio para la nueva cadena
+    char *result = (char *)malloc(totalLength * sizeof(char));
+
+    if (result == NULL) {
+        perror("Error allocating memory");
+        exit(1);
+    }
+    char *resultTemp = result;
+    for (int i = 0; i < numFiles; ++i) {
+        snprintf(resultTemp, totalLength, "%s|", files[sended + i]);
+        resultTemp += filePathSize[i];
+    }
+
+
+
+
+    // Usa snprintf para construir la nueva cadena
+   // snprintf(result, totalLength, "%s|%s|", files[sended], files[sended + 1]);
+
+    write(children[childIndex].pipeReadFd[1], result, totalLength);
+//        write(children[i].pipeReadFd[1],&delim, 1);
+
+    // Libera la memoria reservada
+    free(result);
+    sended += numFiles;
+}
 

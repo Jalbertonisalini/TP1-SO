@@ -4,6 +4,7 @@
 // PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
 // This is a personal academic project. Dear PVS-Studio, please check it.
 // PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+
 #include <sys/mman.h>
 #include <sys/stat.h>        /* For mode constants */
 #include <fcntl.h>           /* For O_* constants */
@@ -21,9 +22,12 @@ int stringToReadStartOffset = 0;
 int stringToReadEndOffset = 0;
 int filesRead = 0;
 
+void readOutput();
+void cleanUp();
+
 int main(int argc, char * argv[])
 {
-    if(argc >= 2) // ./view
+    if(argc >= 2)
     {
         strncpy(shm_path, argv[1], 255);
         shm_path[255] = '\0';
@@ -38,7 +42,7 @@ int main(int argc, char * argv[])
     int shm_fd = shm_open(shm_path, O_RDWR, S_IRUSR | S_IWUSR);
 
     if (shm_fd == -1) {
-        errExit("Error in shm_open()");
+        errExit("Wrong sharedMem path");
     }
 
     shmp = mmap(NULL, sizeof(*shmp), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
@@ -47,38 +51,37 @@ int main(int argc, char * argv[])
         errExit("mmap");
     }
 
-    shmp->buf[0] = 1;
+    shmp->buf[0] = 1; //creo que lo podemos sacar, el app nunca le hace sem wait al vista
 
-    if(sem_wait(&shmp->resultadoDisponible) == ERROR) //1 --> 0
-    {
-        perror("sem_wait");
-    }
-
-   // while ((int)shmp->buf[0] != EOF) // root/TP1-SO/view.c	47	err	V739 EOF should not be compared with a value of the 'char' type. The 'shmp->buf[0]' should be of the 'int' type.
     while (filesRead < shmp->totalFiles)
     {
-        while (shmp->buf[stringToReadEndOffset] != 0){
-            stringToReadEndOffset++;
-        }
-        //stringToReadEndOffset++;
-        printf("%s",shmp->buf + stringToReadStartOffset);
-        stringToReadStartOffset = stringToReadEndOffset;
-     //   sem_post(&shmp->resultadoLeido);
-
-      filesRead++;
-        if(sem_wait(&shmp->resultadoDisponible) == ERROR)
-        {
-            perror("sem_wait");
-        }
+        readOutput();
+        filesRead++;
     }
 
     printf("Todos han terminado\n");
+    cleanUp();
+}
 
-/* Clean up */
+void readOutput()
+{
+    if(sem_wait(&shmp->resultadoDisponible) == ERROR)
+    {
+        perror("sem_wait");
+    }
+    while (shmp->buf[stringToReadEndOffset] != 0){
+        stringToReadEndOffset++;
+    }
+    //stringToReadEndOffset++;
+    printf("%s",shmp->buf + stringToReadStartOffset);
+    stringToReadStartOffset = stringToReadEndOffset;
+}
+
+void cleanUp()
+{
     if (munmap(shmp, sizeof(*shmp)) == -1) {
         errExit("munmap");
     }
 
     shm_unlink(SHM_PATH);
-
 }
