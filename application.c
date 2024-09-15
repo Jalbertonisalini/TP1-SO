@@ -20,12 +20,13 @@
 #include "pshm_ucase.h"
 
 #define MAX_LEN 256     /* Buffer size --> Big enough */
-#define SLAVES 3        /* Fixed slave number */
+#define SLAVES 5        /* Fixed slave number */
 #define ERROR (-1)        /* ERROR code */
 #define FIRST_PIPE_FD 3  /* By default, pipe read is on 3 */
 #define LAST_PIPE_FD 6   /* By default, after creating 2 pipes, second pipe's write is on 6 */
 #define SHM_PATH "/sharedMem"
 #define PATH_LEN 11
+#define FILES_TO_CHILD 3
 
 typedef struct
 {
@@ -34,7 +35,7 @@ typedef struct
     int childPid;
 }Child;
 
-char buff[200];
+char buff[MAX_LEN];
 
 int createChild(int childN);
 int getChildIndex(int childPid);
@@ -60,6 +61,8 @@ char ** files;
 int nfiles;
 int sended = 1;
 int received = 1;
+
+void passFilesToChild(int numFiles, int childIndex);
 
 int main(int argc, char * argv[]){
 
@@ -87,7 +90,7 @@ int main(int argc, char * argv[]){
     }
 
     write(STDOUT_FILENO,SHM_PATH, PATH_LEN);
-    shmp->totalFiles = argc-1;
+    shmp->totalFiles = nfiles-1;
 
 
 /* Initialize semaphore */
@@ -128,39 +131,13 @@ int main(int argc, char * argv[]){
 
     /* (sended - 1) is done to identify the child's index that actually starts in 0 */
 
-    char delim = '|' ;
-    int i = 0;
-    while (sended < argc && i < SLAVES){
-
-        // Calcula el tamaño necesario para la nueva cadena
-        size_t totalLength = strlen(argv[sended]) + strlen(argv[sended + 1]) + 3; // +1 para '|' y +1 para '\0'
-
-        // Reserva espacio para la nueva cadena
-        char *result = (char *)malloc(totalLength * sizeof(char));
-
-
-        if (result == NULL) {
-            perror("Error allocating memory");
-            return 1;
-        }
-
-        // Usa snprintf para construir la nueva cadena
-        snprintf(result, totalLength, "%s|%s|", argv[sended], argv[sended + 1]);
-
-        write(children[i].pipeReadFd[1], result, totalLength);
-//        write(children[i].pipeReadFd[1],&delim, 1);
-
-        // Libera la memoria reservada
-        free(result);
-        sended += 2;
-
-
-        i++;
+    for (int i = 0; i < SLAVES; ++i) {
+        passFilesToChild(FILES_TO_CHILD,i);
     }
     size_t n;
 
 
-    while (received < argc){
+    while (received < nfiles){
 
         initializeFdSets();
 
@@ -191,29 +168,15 @@ int main(int argc, char * argv[]){
                     token = strtok(NULL, delimiters);
                     stringToWriteStartOffset += n;
                 }
-                
-                if(sended < argc)
-                {
-                    if(write(children[k].pipeReadFd[1], argv[sended], strlen(argv[sended])) == ERROR){
-                        perror("error while writing to child");
-                        exit(1);
-                    }
-                    sended++;
-                }
+
+                 passFilesToChild(1,k);
+
             }
         }
     }
 
-//ultimoFileEOF
-
-   // char bufffffff[1000];
-   // sprintf(bufffffff,"application startOffset %zu \n",stringToWriteStartOffset);
-   // shmp->buf[0] = EOF; // le mandamos de a uno los archivos
-   // write(STDOUT_FILENO,bufffffff,1000);
-
     sem_post(&shmp->resultadoDisponible);
 
-    // ACA verdaderamente lo estoy matando porque ya no lo uso mas
     close(children[0].pipeReadFd[1]);
     waitpid(-1, &status, 0);
 
@@ -240,51 +203,19 @@ void createOutputTxt(){
     }
 }
 
-//void createShm_Fd(){
-//    int shm_fd = shm_open(SHM_PATH, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
-//
-//    if (shm_fd == ERROR) {
-//        errExit("Error in shm_open()");
-//    }
-//}
 
-
-//la parte de write la saque porque no deberia bloquear nada. porque siempre voy a poder escribir
-//el tema es si los hijos me mandaron algo o no
 void initializeFdSets()
 {
-    /* Note well: Upon return, each of the file descriptor sets is modified
-         * in place to indicate which file descriptors are currently "ready".
-         * Thus, if using select() within  a  loop,  the  sets  must  be
-       reinitialized before each call.*/
-
-    /*This macro clears (removes all file descriptors from) set.
-     * It should be employed as the first step in initializing a file descriptor set. */
-   // FD_ZERO(&writeFds);
     FD_ZERO(&readFds);
 
     for (int k = 0; k < SLAVES; ++k) {
-        /* This macro adds the file descriptor fd to set. */
-        //FD_SET(children[k].pipeReadFd[1],&writeFds);
         FD_SET(children[k].pipeWriteFd[0],&readFds);
     }
-}
-
-int getChildIndex(int childPid)
-{
-    for (int i = 0; i < SLAVES; ++i) {
-        if(childPid == children[i].childPid)
-        {
-            return i;
-        }
-    }
-    return -1;
 }
 
 int createChild(int childN)
 {
     char * CHILDPATH = "./child";
-    char * text = "rojo";
 
     if(pipe(children[childN].pipeReadFd) == ERROR){
         perror("Error while creating pipe");
@@ -295,9 +226,6 @@ int createChild(int childN)
         exit(1);
     }
 
-    /* 0,1,2 -> TTy 3-> pipeRead.read  4 -> pipeRead.write 5->pipeWrite.read 6 -> pipeWrite.Write
-    *  */
-
     int pidChild;
 
     if((pidChild = fork()) < 0){
@@ -305,16 +233,11 @@ int createChild(int childN)
         exit(1);
     }
     else if (pidChild == 0){ /* child process */
-        char * args[] = {CHILDPATH, text, NULL};
+        char * args[] = {CHILDPATH, NULL};
         char *envp[] = {NULL};
-
-
-        /* Child sets his own STDIN and STDOUT*/
 
         dup2(children[childN].pipeReadFd[0], STDIN_FILENO);
         dup2(children[childN].pipeWriteFd[1], STDOUT_FILENO);
-
-        /* Child closes what he does not need */
 
         for (int i = FIRST_PIPE_FD; i <= LAST_PIPE_FD + 4 * childN ; ++i) {
             close(i);
@@ -331,19 +254,28 @@ int createChild(int childN)
 
 void passFilesToChild(int numFiles, int childIndex)
 {
-    // Calcula el tamaño necesario para la nueva cadena
+
+    if(sended >= nfiles|| childIndex >= SLAVES)
+    {
+        return;
+    }
+    if(sended + numFiles > nfiles)
+    {
+        numFiles = nfiles - sended;
+    }
+
     size_t totalLength = 0;
     size_t filePathSize[numFiles];
 
     for (int i = 0; i < numFiles; ++i) {
         filePathSize[i] = strlen(files[sended + i]);
+
         totalLength += filePathSize[i];
     }
     totalLength += numFiles + 1;
 
  //   totalLength = strlen(files[sended]) + strlen(files[sended + 1]) + 3; // +1 para '|' y +1 para '\0'
 
-    // Reserva espacio para la nueva cadena
     char *result = (char *)malloc(totalLength * sizeof(char));
 
     if (result == NULL) {
@@ -351,22 +283,22 @@ void passFilesToChild(int numFiles, int childIndex)
         exit(1);
     }
     char *resultTemp = result;
+
     for (int i = 0; i < numFiles; ++i) {
-        snprintf(resultTemp, totalLength, "%s|", files[sended + i]);
-        resultTemp += filePathSize[i];
+        snprintf(resultTemp, filePathSize[i] +2, "%s|", files[sended + i]);
+        resultTemp += filePathSize[i] + 1;
     }
-
-
-
+    result[totalLength -1] = 0;
 
     // Usa snprintf para construir la nueva cadena
    // snprintf(result, totalLength, "%s|%s|", files[sended], files[sended + 1]);
 
-    write(children[childIndex].pipeReadFd[1], result, totalLength);
-//        write(children[i].pipeReadFd[1],&delim, 1);
+    //write(children[childIndex].pipeReadFd[1], result, totalLength);
 
-    // Libera la memoria reservada
+    if(write(children[childIndex].pipeReadFd[1], result, totalLength) == ERROR){
+        perror("error while writing to child");
+        exit(1);
+    }
     free(result);
     sended += numFiles;
 }
-
