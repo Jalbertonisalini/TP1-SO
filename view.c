@@ -14,9 +14,9 @@
 #define ERROR (-1)
 #define SHM_PATH "/sharedMem"
 
-#define MAXLENTH 256
+#define MAX_LEN 256
 
-char shm_path[MAXLENTH];
+char shm_path[MAX_LEN];
 struct shmbuf  *shmp;
 int stringToReadStartOffset = 0;
 int stringToReadEndOffset = 0;
@@ -29,8 +29,8 @@ int main(int argc, char * argv[])
 {
     if(argc >= 2)
     {
-        strncpy(shm_path, argv[1], 255);
-        shm_path[255] = '\0';
+        strncpy(shm_path, argv[1], MAX_LEN -1);
+        shm_path[MAX_LEN - 1] = '\0';
     }
     else
     {
@@ -51,7 +51,7 @@ int main(int argc, char * argv[])
         errExit("mmap");
     }
 
-    shmp->buf[0] = 1; //creo que lo podemos sacar, el app nunca le hace sem wait al vista
+    shmp->buf[0] = 1;
 
     while (filesRead < shmp->totalFiles)
     {

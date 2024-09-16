@@ -41,6 +41,7 @@ int createChild(int childN);
 int getChildIndex(int childPid);
 void initializeFdSets();
 void createOutputTxt();
+void cleanUp();
 
 Child children[SLAVES];
 
@@ -49,16 +50,20 @@ fd_set readFds;  //A structure type that can represent a set of file descriptors
 int nfds = 3 + SLAVES *4 +1;
 
 struct shmbuf  *shmp;
-
-
+int waitPidStatus;
+int shm_fd;
 int outputFd;
-//int shm_fd;
+
 
 char view = 0;
 char delimiters[] = "\n";
 size_t stringToWriteStartOffset = 0;
 char ** files;
-int nfiles;
+int totalFiles;
+
+
+/* variable that counts number of files sended from parent to child. As the executable name is not wanted, we initialize it in 1.*/
+/* variable that counts amount of files received again by parent --> this means they have been processeed already.    */
 int sended = 1;
 int received = 1;
 
@@ -66,15 +71,14 @@ void passFilesToChild(int numFiles, int childIndex);
 
 int main(int argc, char * argv[]){
 
-    nfiles = argc;
+   totalFiles = argc;
     files = argv;
-    int shm_fd = shm_open(SHM_PATH, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+    shm_fd = shm_open(SHM_PATH, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
 
     if (shm_fd == ERROR) {
         errExit("Error in shm_open()");
     }
 
-    //    int outputFd = open("output.txt",O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
     createOutputTxt();
 
 
@@ -90,10 +94,9 @@ int main(int argc, char * argv[]){
     }
 
     write(STDOUT_FILENO,SHM_PATH, PATH_LEN);
-    shmp->totalFiles = nfiles-1;
+    shmp->totalFiles =totalFiles-1;
 
 
-/* Initialize semaphore */
     if (sem_init(&shmp->resultadoDisponible, 1, 0) == -1) {
         errExit("sem_init-resultadoDisponible");
     }
@@ -107,44 +110,31 @@ int main(int argc, char * argv[]){
         view = 1;
     }
 
-    /* Wait for 'resultadoDisponible' to be posted by peer before touching
-       shared memory. */
 
-//    if (sem_wait(&shmp->resultadoDisponible) == -1)
-//        errExit("sem_wait");
-
-    /* Creates CHILDREN */
     for (int i = 0; i < SLAVES; ++i) {
         createChild(i);
     }
 
-    /* Parent closes extra channels that he does not need. */
     for (int i = 0; i < SLAVES; ++i) {
         close(children[i].pipeReadFd[0]);
         close(children[i].pipeWriteFd[1]);
     }
 
-    int status;
 
-     /* variable that counts number of files sended from parent to child. As the executable name is not wanted, we initialize it in 1.*/
-     /* variable that counts amount of files received again by parent --> this means they have been processeed already.    */
-
-    /* (sended - 1) is done to identify the child's index that actually starts in 0 */
 
     for (int i = 0; i < SLAVES; ++i) {
         passFilesToChild(FILES_TO_CHILD,i);
     }
-    size_t n;
+    size_t tokenLen;
 
 
-    while (received < nfiles){
+    while (received <totalFiles){
 
         initializeFdSets();
 
-        /* If timeout is specified as NULL, select() blocks indefinitely waiting for a file descriptor to become ready. */
+
         select(nfds,&readFds,NULL,NULL,NULL);
 
-        /* veo cual de los hijos termino de escribirme */
         for (int k = 0; k < SLAVES; ++k) {
 
              if(FD_ISSET(children[k].pipeWriteFd[0],&readFds)) {
@@ -158,15 +148,15 @@ int main(int argc, char * argv[]){
                 while (token!= NULL)
                 {
                     sprintf(shmp->buf + stringToWriteStartOffset,"Hijo con PID: %d produjo Md5: %s \n",children[k].childPid,token);
-                    n = strlen(shmp->buf + stringToWriteStartOffset);
-                    write(outputFd,shmp->buf +stringToWriteStartOffset, n);
+                    tokenLen = strlen(shmp->buf + stringToWriteStartOffset);
+                    write(outputFd,shmp->buf +stringToWriteStartOffset, tokenLen);
 
                     if(view){
                         sem_post(&shmp->resultadoDisponible);
                     }
                     received++;
                     token = strtok(NULL, delimiters);
-                    stringToWriteStartOffset += n;
+                    stringToWriteStartOffset += tokenLen;
                 }
 
                  passFilesToChild(1,k);
@@ -176,9 +166,16 @@ int main(int argc, char * argv[]){
     }
 
     sem_post(&shmp->resultadoDisponible);
+    cleanUp();
 
+
+    return 0;
+}
+
+void cleanUp()
+{
     close(children[0].pipeReadFd[1]);
-    waitpid(-1, &status, 0);
+    waitpid(-1, &waitPidStatus, 0);
 
 
 
@@ -191,8 +188,6 @@ int main(int argc, char * argv[]){
     fflush(stdout);
     close(STDOUT_FILENO);
     shm_unlink(SHM_PATH);
-
-    return 0;
 }
 
 
@@ -257,13 +252,13 @@ int createChild(int childN)
 void passFilesToChild(int numFiles, int childIndex)
 {
 
-    if(sended >= nfiles|| childIndex >= SLAVES)
+    if(sended >=totalFiles|| childIndex >= SLAVES)
     {
         return;
     }
-    if(sended + numFiles > nfiles)
+    if(sended + numFiles >totalFiles)
     {
-        numFiles = nfiles - sended;
+        numFiles =totalFiles - sended;
     }
 
     size_t totalLength = 0;
