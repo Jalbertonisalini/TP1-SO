@@ -3,6 +3,8 @@
 #include <fcntl.h>           /* For O_* constants */
 #include "pshm_ucase.h"
 #include <string.h>
+#include <stdbool.h>
+
 #define ERROR (-1)
 #define SHM_PATH "/sharedMem"
 
@@ -16,8 +18,24 @@ int filesRead = 0;
 int shm_fd;
 void readOutput();
 void cleanUp();
+void getSharedMemLocation(int argc, char ** argv);
+void initializeSharedMem();
 
 int main(int argc, char * argv[])
+{
+    getSharedMemLocation(argc,argv);
+    initializeSharedMem();
+    while (filesRead < shmp->totalFiles)
+    {
+        readOutput();
+        filesRead++;
+    }
+
+    printf("Todos han terminado\n");
+    cleanUp();
+}
+
+void getSharedMemLocation(int argc, char ** argv)
 {
     if(argc >= 2)
     {
@@ -30,7 +48,10 @@ int main(int argc, char * argv[])
             errExit("Error while reading from STDIN");
         }
     }
+}
 
+void initializeSharedMem()
+{
     shm_fd =  shm_open(shm_path, O_RDWR, S_IRUSR | S_IWUSR);
 
     if (shm_fd == -1) {
@@ -43,16 +64,7 @@ int main(int argc, char * argv[])
         errExit("mmap");
     }
 
-    shmp->buf[0] = 1;
-
-    while (filesRead < shmp->totalFiles)
-    {
-        readOutput();
-        filesRead++;
-    }
-
-    printf("Todos han terminado\n");
-    cleanUp();
+    shmp->buf[0] = true;
 }
 
 void readOutput()
@@ -64,6 +76,7 @@ void readOutput()
     while (shmp->buf[stringToReadEndOffset] != 0){
         stringToReadEndOffset++;
     }
+    stringToReadEndOffset++;
     printf("%s",shmp->buf + stringToReadStartOffset);
     stringToReadStartOffset = stringToReadEndOffset;
 }

@@ -7,7 +7,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <sys/mman.h>
-
+#include <stdbool.h>
 
 #include "pshm_ucase.h"
 
@@ -30,10 +30,14 @@ typedef struct
 char buff[MAX_LEN];
 
 int createChild(int childN);
-int getChildIndex(int childPid);
+
 void initializeFdSets();
 void createOutputTxt();
 void cleanUp();
+void initializeSharedMem();
+void initializeViewProcessData();
+void initializeSlaves();
+void checkChildOutput(int childIndex);
 
 Child children[SLAVES];
 
@@ -42,16 +46,16 @@ int nfds = 3 + SLAVES *4 +1;
 
 struct shmbuf  *shmp;
 int waitPidStatus;
-int shm_fd;
+int shm_fd = 0;
 int outputFd;
 
 
-char view = 0;
+char view = false;
 char delimiters[] = "\n";
 size_t stringToWriteStartOffset = 0;
 char ** files;
 int totalFiles;
-
+size_t childOutputTokenLen;
 
 
 
@@ -64,42 +68,44 @@ int main(int argc, char * argv[]){
 
    totalFiles = argc;
     files = argv;
-    shm_fd = shm_open(SHM_PATH, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
 
-    if (shm_fd == ERROR) {
-        errExit("Error in shm_open()");
-    }
-
+    initializeSharedMem();
     createOutputTxt();
-
-    if (ftruncate(shm_fd, sizeof(struct shmbuf)) == -1) {
-        errExit("ftruncate");
-    }
-
-   shmp = mmap(NULL, sizeof(*shmp), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
-
-    if (shmp == MAP_FAILED) {
-        errExit("mmap");
-    }
-
-    write(STDOUT_FILENO,SHM_PATH, PATH_LEN);
-    shmp->totalFiles =totalFiles-1;
+    initializeViewProcessData();
 
 
-    if (sem_init(&shmp->resultadoDisponible, 1, 0) == -1) {
-        errExit("sem_init-resultadoDisponible");
-    }
-    if (sem_init(&shmp->resultadoLeido, 1, 1) == -1) {
-        errExit("sem_init-resultadoDisponible");
-    }
+    initializeSlaves();
 
-     sleep(2);
 
-    if(shmp->buf[0]){
-        view = 1;
+
+
+    for (int i = 0; i < SLAVES; ++i) {
+        passFilesToChild(FILES_TO_CHILD,i);
     }
 
 
+
+    while (received <totalFiles){
+        initializeFdSets();
+        select(nfds,&readFds,NULL,NULL,NULL);
+        for (int k = 0; k < SLAVES; ++k) {
+             if(FD_ISSET(children[k].pipeWriteFd[0],&readFds)) {
+                 checkChildOutput(k);
+                 passFilesToChild(1,k);
+            }
+        }
+    }
+    shmp->buf[stringToWriteStartOffset] = EOF;
+    sem_post(&shmp->resultadoDisponible);
+
+    cleanUp();
+
+
+    return 0;
+}
+
+void initializeSlaves()
+{
     for (int i = 0; i < SLAVES; ++i) {
         createChild(i);
     }
@@ -108,57 +114,6 @@ int main(int argc, char * argv[]){
         close(children[i].pipeReadFd[0]);
         close(children[i].pipeWriteFd[1]);
     }
-
-
-
-    for (int i = 0; i < SLAVES; ++i) {
-        passFilesToChild(FILES_TO_CHILD,i);
-    }
-    size_t tokenLen;
-
-
-    while (received <totalFiles){
-
-        initializeFdSets();
-
-
-        select(nfds,&readFds,NULL,NULL,NULL);
-
-        for (int k = 0; k < SLAVES; ++k) {
-
-             if(FD_ISSET(children[k].pipeWriteFd[0],&readFds)) {
-                ssize_t nRead;
-                if((nRead = read(children[k].pipeWriteFd[0], buff, 199)) == ERROR) {
-                    errExit("Error while reading from child");
-                }
-                buff[nRead] = 0;
-                char *token = strtok(buff, delimiters);
-
-                while (token!= NULL)
-                {
-                    sprintf(shmp->buf + stringToWriteStartOffset,"Hijo con PID: %d produjo Md5: %s \n",children[k].childPid,token);
-                    tokenLen = strlen(shmp->buf + stringToWriteStartOffset);
-                    write(outputFd,shmp->buf +stringToWriteStartOffset, tokenLen);
-
-                    if(view){
-                        sem_post(&shmp->resultadoDisponible);
-                    }
-                    received++;
-                    token = strtok(NULL, delimiters);
-                    stringToWriteStartOffset += tokenLen;
-                }
-
-                 passFilesToChild(1,k);
-
-            }
-        }
-    }
-
-    sem_post(&shmp->resultadoDisponible);
-    cleanUp();
-
-
-    return 0;
 }
 
 void cleanUp() {
@@ -180,6 +135,25 @@ void cleanUp() {
     shm_unlink(SHM_PATH);
 }
 
+void initializeSharedMem()
+{
+    shm_fd = shm_open(SHM_PATH, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+
+    if (shm_fd == ERROR) {
+        errExit("Error in shm_open()");
+    }
+
+    if (ftruncate(shm_fd, sizeof(struct shmbuf)) == -1) {
+        errExit("ftruncate");
+    }
+
+    shmp = mmap(NULL, sizeof(*shmp), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+
+    if (shmp == MAP_FAILED) {
+        errExit("mmap");
+    }
+    shmp->totalFiles = totalFiles;
+}
 
 void createOutputTxt(){
     outputFd = open("result.txt", O_WRONLY | O_CREAT, 0644);
@@ -187,6 +161,50 @@ void createOutputTxt(){
     if (outputFd < 0) {
         perror("Error al abrir o crear el archivo");
         return;
+    }
+}
+
+void initializeViewProcessData()
+{
+    if(shm_fd == 0)
+    {
+        perror("call to initializeSharedMem required");
+        exit(1);
+    }
+    write(STDOUT_FILENO,SHM_PATH, PATH_LEN);
+    shmp->totalFiles =totalFiles-1;
+
+
+    if (sem_init(&shmp->resultadoDisponible, 1, 0) == -1) {
+        errExit("sem_init-resultadoDisponible");
+    }
+
+    sleep(2);
+
+    if(shmp->buf[0]){
+        view = true;
+    }
+}
+
+void checkChildOutput(int childIndex)
+{
+    ssize_t nRead;
+    if((nRead = read(children[childIndex].pipeWriteFd[0], buff, 199)) == ERROR) {
+        errExit("Error while reading from child");
+    }
+    buff[nRead] = 0;
+    char *token = strtok(buff, delimiters);
+
+    while (token!= NULL)
+    {
+        sprintf(shmp->buf + stringToWriteStartOffset,"Hijo con PID: %d produjo Md5: %s \n",children[childIndex].childPid,token);
+        childOutputTokenLen = strlen(shmp->buf + stringToWriteStartOffset);
+        write(outputFd,shmp->buf +stringToWriteStartOffset, childOutputTokenLen);
+        sem_post(&shmp->resultadoDisponible);
+
+        received++;
+        token = strtok(NULL, delimiters);
+        stringToWriteStartOffset += childOutputTokenLen + 1;
     }
 }
 
