@@ -1,10 +1,3 @@
-// This is a personal academic project. Dear PVS-Studio, please check it.
-// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
-// This is a personal academic project. Dear PVS-Studio, please check it.
-// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
-// This is a personal academic project. Dear PVS-Studio, please check it.
-// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
-
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -19,7 +12,7 @@ char md5Buff[MAX_BUFF];
 int main(int argc, char * argv[]){
     while (1) {
 
-        ssize_t n = read(STDIN_FILENO, buff, MAX_BUFF);
+        ssize_t n = read(STDIN_FILENO, buff, MAX_BUFF - 1);
 
         if (n == ERROR){
             perror("Error en la lectura");
