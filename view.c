@@ -21,7 +21,7 @@ struct shmbuf  *shmp;
 int stringToReadStartOffset = 0;
 int stringToReadEndOffset = 0;
 int filesRead = 0;
-
+int shm_fd;
 void readOutput();
 void cleanUp();
 
@@ -39,7 +39,7 @@ int main(int argc, char * argv[])
         }
     }
 
-    int shm_fd = shm_open(shm_path, O_RDWR, S_IRUSR | S_IWUSR);
+    shm_fd =  shm_open(shm_path, O_RDWR, S_IRUSR | S_IWUSR);
 
     if (shm_fd == -1) {
         errExit("Wrong sharedMem path");
@@ -83,5 +83,6 @@ void cleanUp()
         errExit("munmap");
     }
 
-    shm_unlink(SHM_PATH);
+    close(shm_fd);
+    close(STDIN_FILENO);
 }

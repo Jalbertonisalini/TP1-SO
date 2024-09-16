@@ -77,7 +77,7 @@ int main(int argc, char * argv[]){
     //    int outputFd = open("output.txt",O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
     createOutputTxt();
 
-    puts("");
+
 
     if (ftruncate(shm_fd, sizeof(struct shmbuf)) == -1) {
         errExit("ftruncate");
@@ -181,13 +181,15 @@ int main(int argc, char * argv[]){
     waitpid(-1, &status, 0);
 
 
-    printf("Todos han terminado");
+
 
     if (munmap(shmp, sizeof(*shmp)) == -1) {
         perror("munmap");
         exit(1);
     }
-
+    close(shm_fd);
+    fflush(stdout);
+    close(STDOUT_FILENO);
     shm_unlink(SHM_PATH);
 
     return 0;
