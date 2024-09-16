@@ -8,7 +8,6 @@
 #include <sys/mman.h>
 #include <sys/stat.h>        /* For mode constants */
 #include <fcntl.h>           /* For O_* constants */
-#include <ctype.h>
 #include "pshm_ucase.h"
 #include <string.h>
 #define ERROR (-1)
@@ -72,7 +71,6 @@ void readOutput()
     while (shmp->buf[stringToReadEndOffset] != 0){
         stringToReadEndOffset++;
     }
-    //stringToReadEndOffset++;
     printf("%s",shmp->buf + stringToReadStartOffset);
     stringToReadStartOffset = stringToReadEndOffset;
 }

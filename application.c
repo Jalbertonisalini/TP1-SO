@@ -45,8 +45,7 @@ void cleanUp();
 
 Child children[SLAVES];
 
-/* select parameters */
-fd_set readFds;  //A structure type that can represent a set of file descriptors.
+fd_set readFds;
 int nfds = 3 + SLAVES *4 +1;
 
 struct shmbuf  *shmp;
@@ -62,10 +61,10 @@ char ** files;
 int totalFiles;
 
 
-/* variable that counts number of files sended from parent to child. As the executable name is not wanted, we initialize it in 1.*/
-/* variable that counts amount of files received again by parent --> this means they have been processeed already.    */
-int sended = 1;
-int received = 1;
+
+
+int sended = 1; /* variable that counts number of files sended from parent to child. As the executable name is not wanted, we initialize it in 1.*/
+int received = 1; /* variable that counts amount of files received again by parent --> this means they have been processeed already.    */
 
 void passFilesToChild(int numFiles, int childIndex);
 
@@ -80,8 +79,6 @@ int main(int argc, char * argv[]){
     }
 
     createOutputTxt();
-
-
 
     if (ftruncate(shm_fd, sizeof(struct shmbuf)) == -1) {
         errExit("ftruncate");
@@ -172,13 +169,14 @@ int main(int argc, char * argv[]){
     return 0;
 }
 
-void cleanUp()
-{
-    close(children[0].pipeReadFd[1]);
-    waitpid(-1, &waitPidStatus, 0);
+void cleanUp() {
 
-
-
+    for(int i = 0; i < SLAVES; i++){
+        close(children[i].pipeReadFd[1]);
+        close(children[i].pipeWriteFd[0]);
+        waitpid(-1,&waitPidStatus,0);
+    }
+    close(outputFd);
 
     if (munmap(shmp, sizeof(*shmp)) == -1) {
         perror("munmap");
@@ -271,8 +269,6 @@ void passFilesToChild(int numFiles, int childIndex)
     }
     totalLength += numFiles + 1;
 
- //   totalLength = strlen(files[sended]) + strlen(files[sended + 1]) + 3; // +1 para '|' y +1 para '\0'
-
     char *result = (char *)malloc(totalLength * sizeof(char));
 
     if (result == NULL) {
@@ -286,11 +282,6 @@ void passFilesToChild(int numFiles, int childIndex)
         resultTemp += filePathSize[i] + 1;
     }
     result[totalLength -1] = 0;
-
-    // Usa snprintf para construir la nueva cadena
-   // snprintf(result, totalLength, "%s|%s|", files[sended], files[sended + 1]);
-
-    //write(children[childIndex].pipeReadFd[1], result, totalLength);
 
     if(write(children[childIndex].pipeReadFd[1], result, totalLength) == ERROR){
         perror("error while writing to child");
